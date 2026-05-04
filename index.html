@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #eef0f3;
+  min-height: 100vh;
+  padding: 12px;
+}
+
+#app {
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.13);
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* ── Header ── */
+#header {
+  background: linear-gradient(135deg, #2c3e6b, #3d5a99);
+  color: #fff;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+#header::before { content: "𝒌"; font-size: 18px; opacity: 0.8; }
+
+/* ── Toolbar ── */
+#toolbar {
+  border-bottom: 2px solid #e0e4ea;
+  background: #f5f7fa;
+}
+
+#tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px 0;
+  background: #e8ebf0;
+}
+
+.tab {
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  background: transparent;
+  color: #555;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.tab:hover { background: #dde2ea; }
+.tab.active {
+  background: #fff;
+  border-color: #cdd2db;
+  color: #222;
+  font-weight: 600;
+  position: relative;
+  bottom: -2px;
+  border-bottom: 2px solid #fff;
+  z-index: 1;
+}
+
+#palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 8px 10px;
+  background: #fff;
+  min-height: 52px;
+  align-items: center;
+}
+
+.sym-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 34px;
+  padding: 3px 7px;
+  border: 1px solid #d5d8de;
+  border-radius: 5px;
+  cursor: pointer;
+  background: #fafbfc;
+  font-size: 13px;
+  transition: all 0.12s;
+  position: relative;
+}
+.sym-btn:hover {
+  background: #e8f0fe;
+  border-color: #4285f4;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(66,133,244,0.18);
+  z-index: 2;
+}
+.sym-btn:active { transform: translateY(0); }
+
+/* Tooltip */
+.sym-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* ── Workspace ── */
+#workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 220px;
+}
+
+.pane {
+  padding: 12px;
+}
+#input-pane { border-right: 1px solid #e8eaed; }
+#preview-pane { background: #fafbfc; }
+
+.pane-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 7px;
+}
+
+#input {
+  width: 100%;
+  height: 500px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.65;
+  border: 1.5px solid #dde0e8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  resize: none;
+  outline: none;
+  color: transparent;
+  caret-color: #222;
+  background: transparent;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  white-space: pre-wrap;
+  overflow-y: auto;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+#input:focus {
+  border-color: #4285f4;
+  box-shadow: 0 0 0 3px rgba(66,133,244,0.12);
+}
+
+/* Syntax highlight overlay */
+.editor-wrapper {
+  position: relative;
+  height: 500px;
+}
+#highlight {
+  position: absolute;
+  inset: 0;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 13.5px;
+  line-height: 1.65;
+  border: 1.5px solid #dde0e8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-y: auto;
+  box-sizing: border-box;
+  pointer-events: none;
+  color: #222;
+  z-index: 0;
+}
+
+/* Highlight token colors */
+.hl-be   { color: #1565c0; font-weight: 700; }  /* \begin \end */
+.hl-env  { color: #7b1fa2; font-weight: 600; }  /* {aligned} */
+.hl-cmd  { color: #1976d2; }                     /* \frac \alpha … */
+.hl-brk  { color: #e65100; font-weight: 700; }  /* \\ */
+.hl-br   { color: #78909c; }                     /* { } */
+.hl-sc   { color: #c62828; font-weight: 600; }  /* _ ^ */
+.hl-amp  { color: #00838f; font-weight: 600; }  /* & */
+.hl-num  { color: #2e7d32; }                     /* numbers */
+
+#preview {
+  min-height: 500px;
+  border: 1.5px solid #dde0e8;
+  border-radius: 6px;
+  padding: 16px 14px;
+  overflow-x: auto;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+#preview .katex-display { margin: 0; }
+.preview-placeholder { color: #bbb; font-size: 13px; text-align: center; }
+.preview-error { color: #c0392b; font-size: 12px; font-family: monospace; padding: 8px; }
+
+/* ── Actions ── */
+#actions {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1.5px solid #e8eaed;
+  background: #f5f7fa;
+  flex-wrap: wrap;
+}
+
+.act-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: all 0.12s;
+}
+.act-btn:hover { filter: brightness(0.92); transform: translateY(-1px); }
+.act-btn:active { transform: translateY(0); }
+
+#btn-inline { background: #4285f4; color: #fff; }
+#btn-block  { background: #0f9d58; color: #fff; }
+#btn-clear  { background: #e8eaed; color: #555; }
+
+#pt-label {
+  margin-left: auto;
+  font-size: 12px;
+  color: #777;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+#default-pt {
+  width: 44px;
+  padding: 4px 5px;
+  border: 1.5px solid #dde0e8;
+  border-radius: 5px;
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+}
+#default-pt:focus { border-color: #4285f4; }
+
+#toast {
+  font-size: 12px;
+  color: #0f9d58;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
+
+/* KaTeX sizing inside buttons */
+.sym-btn .katex { font-size: 1em; }
+
+/* ── Recently used ── */
+#recent-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 34px;
+}
+#recent-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #bbb;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+#recent-btns {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.recent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 30px;
+  padding: 2px 7px;
+  border: 1.5px solid #b0bec5;
+  border-radius: 5px;
+  cursor: pointer;
+  background: #f0f4ff;
+  font-size: 13px;
+  transition: all 0.12s;
+  position: relative;
+}
+.recent-btn:hover {
+  background: #e8f0fe;
+  border-color: #4285f4;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(66,133,244,0.18);
+}
+.recent-btn[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">KaTeX エディタ for Notion</div>
+  <div id="toolbar">
+    <div id="tabs"></div>
+    <div id="palette"></div>
+  </div>
+  <div id="workspace">
+    <div class="pane" id="input-pane">
+      <div class="pane-label">KaTeX 入力</div>
+      <div class="editor-wrapper">
+        <div id="highlight" aria-hidden="true"></div>
+        <textarea id="input" spellcheck="false"></textarea>
+      </div>
+      <div id="recent-row">
+        <span id="recent-label">最近</span>
+        <div id="recent-btns"></div>
+      </div>
+    </div>
+    <div class="pane" id="preview-pane">
+      <div class="pane-label">プレビュー</div>
+      <div id="preview"><span class="preview-placeholder">ここにプレビューが表示されます</span></div>
+    </div>
+  </div>
+  <div id="actions">
+    <button class="act-btn" id="btn-inline"  onclick="copyTeX('inline')">コピー $…$（インライン）</button>
+    <button class="act-btn" id="btn-block"   onclick="copyTeX('block')">コピー $$…$$（ブロック）</button>
+    <button class="act-btn" id="btn-clear"   onclick="clearInput()">クリア</button>
+    <label id="pt-label">
+      行間デフォルト
+      <input type="number" id="default-pt" value="6" min="0" max="99" step="1">
+      pt
+    </label>
+    <span id="toast">✓ コピーしました</span>
+  </div>
+</div>
+
+<script>
+/* ─── Symbol definitions ─────────────────────────────────────────────── */
+const CATS = [
+  {
+    name: 'ギリシャ文字（小）',
+    syms: [
+      {t:'\\alpha'},{t:'\\beta'},{t:'\\gamma'},{t:'\\delta'},
+      {t:'\\epsilon'},{t:'\\varepsilon'},{t:'\\zeta'},{t:'\\eta'},
+      {t:'\\theta'},{t:'\\vartheta'},{t:'\\iota'},{t:'\\kappa'},
+      {t:'\\lambda'},{t:'\\mu'},{t:'\\nu'},{t:'\\xi'},
+      {t:'\\pi'},{t:'\\varpi'},{t:'\\rho'},{t:'\\varrho'},
+      {t:'\\sigma'},{t:'\\varsigma'},{t:'\\tau'},{t:'\\upsilon'},
+      {t:'\\phi'},{t:'\\varphi'},{t:'\\chi'},{t:'\\psi'},{t:'\\omega'},
+    ]
+  },
+  {
+    name: 'ギリシャ文字（大）',
+    syms: [
+      {t:'\\Gamma'},{t:'\\Delta'},{t:'\\Theta'},{t:'\\Lambda'},
+      {t:'\\Xi'},{t:'\\Pi'},{t:'\\Sigma'},{t:'\\Upsilon'},
+      {t:'\\Phi'},{t:'\\Psi'},{t:'\\Omega'},
+    ]
+  },
+  {
+    name: '演算子・関係',
+    syms: [
+      {t:'\\times'},{t:'\\div'},{t:'\\pm'},{t:'\\mp'},{t:'\\cdot'},
+      {t:'\\circ'},{t:'\\bullet'},{t:'\\oplus'},{t:'\\otimes'},
+      {t:'\\neq'},{t:'\\leq'},{t:'\\geq'},{t:'\\ll'},{t:'\\gg'},
+      {t:'\\approx'},{t:'\\equiv'},{t:'\\sim'},{t:'\\simeq'},
+      {t:'\\propto'},{t:'\\infty'},{t:'\\partial'},{t:'\\nabla'},
+    ]
+  },
+  {
+    name: '分数・根号・上下付き',
+    syms: [
+      {t:'\\frac{}{}',     c:6,  lbl:'\\frac{a}{b}',     tip:'分数'},
+      {t:'\\dfrac{}{}',    c:7,  lbl:'\\dfrac{a}{b}',    tip:'表示用分数'},
+      {t:'\\sqrt{}',       c:6,  lbl:'\\sqrt{x}',        tip:'平方根'},
+      {t:'\\sqrt[]{}',     c:7,  lbl:'\\sqrt[n]{x}',     tip:'n乗根'},
+      {t:'^{}',            c:2,  lbl:'x^{n}',            tip:'上付き'},
+      {t:'_{}',            c:2,  lbl:'x_{n}',            tip:'下付き'},
+      {t:'_{}^{}',         c:2,  lbl:'x_{i}^{n}',        tip:'上下付き'},
+      {t:'\\overline{}',   c:11, lbl:'\\overline{x}',    tip:'オーバーライン'},
+      {t:'\\underline{}',  c:12, lbl:'\\underline{x}',   tip:'アンダーライン'},
+      {t:'\\hat{}',        c:5,  lbl:'\\hat{x}',         tip:'ハット'},
+      {t:'\\bar{}',        c:5,  lbl:'\\bar{x}',         tip:'バー'},
+      {t:'\\vec{}',        c:5,  lbl:'\\vec{x}',         tip:'ベクトル'},
+      {t:'\\dot{}',        c:5,  lbl:'\\dot{x}',         tip:'ドット'},
+      {t:'\\ddot{}',       c:6,  lbl:'\\ddot{x}',        tip:'ダブルドット'},
+      {t:'\\tilde{}',      c:7,  lbl:'\\tilde{x}',       tip:'チルダ'},
+      {t:'\\widehat{}',    c:9,  lbl:'\\widehat{xy}',    tip:'ワイドハット'},
+      {t:'\\widetilde{}',  c:11, lbl:'\\widetilde{xy}',  tip:'ワイドチルダ'},
+      {t:'\\mathrm{}',     c:8,  lbl:'\\mathrm{x}',      tip:'立体（ローマン体）'},
+    ]
+  },
+  {
+    name: '積分・総和・極限',
+    syms: [
+      {t:'\\int',                  lbl:'\\int'},
+      {t:'\\int_{}^{}',      c:5,  lbl:'\\int_a^b',         tip:'定積分'},
+      {t:'\\iint',                 lbl:'\\iint'},
+      {t:'\\iiint',                lbl:'\\iiint'},
+      {t:'\\oint',                 lbl:'\\oint'},
+      {t:'\\sum',                  lbl:'\\sum'},
+      {t:'\\sum_{i=1}^{}',   c:15, lbl:'\\sum_{i=1}^{n}',   tip:'総和'},
+      {t:'\\prod',                 lbl:'\\prod'},
+      {t:'\\prod_{i=1}^{}',  c:16, lbl:'\\prod_{i=1}^{n}',  tip:'総積'},
+      {t:'\\lim_{ \\to }',   c:5,  lbl:'\\lim_{x \\to 0}',  tip:'極限'},
+      {t:'\\max',                  lbl:'\\max'},
+      {t:'\\min',                  lbl:'\\min'},
+      {t:'\\frac{d}{dx}',    c:7,  lbl:'\\frac{d}{dx}',     tip:'微分'},
+      {t:'\\frac{d^2}{dx^2}',c:7,  lbl:'\\frac{d^2}{dx^2}', tip:'2階微分'},
+      {t:'\\frac{\\partial}{\\partial x}', c:18, lbl:'\\frac{\\partial f}{\\partial x}', tip:'偏微分'},
+    ]
+  },
+  {
+    name: '括弧・デリミタ',
+    syms: [
+      {t:'\\left( \\right)',       c:7,  lbl:'\\left(x\\right)',      tip:'丸括弧（自動サイズ）'},
+      {t:'\\left[ \\right]',       c:7,  lbl:'\\left[x\\right]',      tip:'角括弧（自動サイズ）'},
+      {t:'\\left\\{ \\right\\}',   c:8,  lbl:'\\left\\{x\\right\\}',  tip:'波括弧（自動サイズ）'},
+      {t:'\\left| \\right|',       c:7,  lbl:'\\left|x\\right|',      tip:'絶対値'},
+      {t:'\\left\\| \\right\\|',   c:8,  lbl:'\\left\\|x\\right\\|',  tip:'ノルム'},
+      {t:'\\left\\langle \\right\\rangle', c:13, lbl:'\\left\\langle x\\right\\rangle', tip:'山括弧'},
+      {t:'\\left\\lfloor \\right\\rfloor', c:13, lbl:'\\left\\lfloor x\\right\\rfloor', tip:'床関数'},
+      {t:'\\left\\lceil \\right\\rceil',   c:12, lbl:'\\left\\lceil x\\right\\rceil',   tip:'天井関数'},
+    ]
+  },
+  {
+    name: '行列・構造',
+    syms: [
+      {t:'\\begin{pmatrix}  \\\\  \\end{pmatrix}',          c:18, lbl:'\\begin{pmatrix}a&b\\\\c&d\\end{pmatrix}',   tip:'丸括弧行列'},
+      {t:'\\begin{bmatrix}  \\\\  \\end{bmatrix}',          c:18, lbl:'\\begin{bmatrix}a&b\\\\c&d\\end{bmatrix}',   tip:'角括弧行列'},
+      {t:'\\begin{vmatrix}  \\\\  \\end{vmatrix}',          c:18, lbl:'\\begin{vmatrix}a&b\\\\c&d\\end{vmatrix}',   tip:'行列式'},
+      {t:'\\begin{cases}  \\\\  \\end{cases}',              c:14, lbl:'\\begin{cases}f_1\\\\f_2\\end{cases}',       tip:'場合分け（cases）'},
+      {t:'\\begin{aligned}  \\\\  \\end{aligned}',          c:16, lbl:'\\begin{aligned}a&=b\\\\c&=d\\end{aligned}', tip:'aligned（数式揃え）'},
+      {t:'\\left\\{\\begin{aligned}  \\\\  \\end{aligned}\\right.',  c:22, lbl:'\\left\\{\\begin{aligned}a&=b\\\\c&=d\\end{aligned}\\right.', tip:'連立方程式'},
+      {t:'\\begin{array}{cc}  &  \\\\  &  \\end{array}',   c:19, lbl:'\\begin{array}{cc}a&b\\\\c&d\\end{array}',   tip:'array'},
+    ]
+  },
+  {
+    name: '矢印',
+    syms: [
+      {t:'\\to'},{t:'\\gets'},
+      {t:'\\rightarrow'},{t:'\\leftarrow'},{t:'\\leftrightarrow'},
+      {t:'\\Rightarrow'},{t:'\\Leftarrow'},{t:'\\Leftrightarrow'},
+      {t:'\\uparrow'},{t:'\\downarrow'},{t:'\\updownarrow'},
+      {t:'\\nearrow'},{t:'\\searrow'},{t:'\\swarrow'},{t:'\\nwarrow'},
+      {t:'\\xrightarrow{}', c:13, lbl:'\\xrightarrow{f}', tip:'ラベル付き矢印'},
+      {t:'\\xleftarrow{}',  c:12, lbl:'\\xleftarrow{f}',  tip:'ラベル付き矢印（左）'},
+    ]
+  },
+  {
+    name: '集合・論理・その他',
+    syms: [
+      {t:'\\in'},{t:'\\notin'},{t:'\\ni'},
+      {t:'\\subset'},{t:'\\subseteq'},{t:'\\supset'},{t:'\\supseteq'},
+      {t:'\\cup'},{t:'\\cap'},{t:'\\setminus'},
+      {t:'\\forall'},{t:'\\exists'},{t:'\\nexists'},
+      {t:'\\mathbb{R}', c:10, lbl:'\\mathbb{R}'},
+      {t:'\\mathbb{N}', c:10, lbl:'\\mathbb{N}'},
+      {t:'\\mathbb{Z}', c:10, lbl:'\\mathbb{Z}'},
+      {t:'\\mathbf{}',  c:8,  lbl:'\\mathbf{x}', tip:'太字'},
+      {t:'\\mathrm{}',  c:8,  lbl:'\\mathrm{x}', tip:'立体（ローマン体）'},
+      {t:'\\mathit{}',  c:8,  lbl:'\\mathit{x}', tip:'イタリック体'},
+      {t:'\\text{}',    c:6,  lbl:'\\text{abc}', tip:'テキスト'},
+      {t:'\\ldots'},{t:'\\cdots'},{t:'\\vdots'},{t:'\\ddots'},
+      {t:'\\hbar'},{t:'\\ell'},{t:'\\Re'},{t:'\\Im'},
+    ]
+  },
+];
+
+/* ─── State ──────────────────────────────────────────────────────────── */
+const inputEl   = document.getElementById('input');
+const previewEl = document.getElementById('preview');
+const tabsEl    = document.getElementById('tabs');
+const paletteEl = document.getElementById('palette');
+const toastEl   = document.getElementById('toast');
+let activeTab = 0;
+
+/* ─── KaTeX helpers ──────────────────────────────────────────────────── */
+function tryRender(tex, displayMode) {
+  try {
+    return katex.renderToString(tex, { throwOnError: true, displayMode });
+  } catch(e) {
+    return null;
+  }
+}
+
+/* ─── Build tabs ─────────────────────────────────────────────────────── */
+function buildTabs() {
+  tabsEl.innerHTML = '';
+  CATS.forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (i === 0 ? ' active' : '');
+    btn.textContent = cat.name;
+    btn.onclick = () => showTab(i);
+    tabsEl.appendChild(btn);
+  });
+}
+
+function showTab(i) {
+  activeTab = i;
+  document.querySelectorAll('.tab').forEach((b, j) =>
+    b.classList.toggle('active', i === j));
+  buildPalette(CATS[i]);
+}
+
+/* ─── Build palette ──────────────────────────────────────────────────── */
+function buildPalette(cat) {
+  paletteEl.innerHTML = '';
+  cat.syms.forEach(sym => {
+    const btn = document.createElement('button');
+    btn.className = 'sym-btn';
+    if (sym.tip) btn.title = sym.tip;
+
+    const labelTex = sym.lbl || sym.t;
+    const html = tryRender(labelTex, false);
+    if (html) btn.innerHTML = html;
+    else btn.textContent = sym.t;
+
+    btn.onclick = () => insertSym(sym);
+    paletteEl.appendChild(btn);
+  });
+}
+
+/* ─── Insert at cursor ───────────────────────────────────────────────── */
+const recentEl = document.getElementById('recent-btns');
+let recentSyms = []; // most-recent first, max 5
+
+function pushRecent(sym) {
+  recentSyms = [sym, ...recentSyms.filter(s => s.t !== sym.t)].slice(0, 5);
+  renderRecent();
+}
+
+function renderRecent() {
+  recentEl.innerHTML = '';
+  recentSyms.forEach(sym => {
+    const btn = document.createElement('button');
+    btn.className = 'recent-btn';
+    if (sym.tip) btn.title = sym.tip;
+    const labelTex = sym.lbl || sym.t;
+    const html = tryRender(labelTex, false);
+    if (html) btn.innerHTML = html;
+    else btn.textContent = sym.t;
+    btn.onclick = () => insertSym(sym, false);
+    recentEl.appendChild(btn);
+  });
+}
+
+function insertSym(sym, addToRecent = true) {
+  saveState();
+  burstActive = false; // next keystroke after insertion starts fresh burst
+  const s = inputEl.selectionStart;
+  const e = inputEl.selectionEnd;
+  const before = inputEl.value.slice(0, s);
+  const after  = inputEl.value.slice(e);
+  inputEl.value = before + sym.t + after;
+  const pos = s + (sym.c !== undefined ? sym.c : sym.t.length);
+  inputEl.setSelectionRange(pos, pos);
+  inputEl.focus();
+  if (addToRecent) pushRecent(sym);
+  renderPreview();
+}
+
+/* ─── Render preview ─────────────────────────────────────────────────── */
+// Auto-convert plain ( ) [ ] to \left( \right) \left[ \right]
+// Skip brackets that are already part of a command (preceded by letter/digit/\)
+function autoSize(tex) {
+  return tex
+    .replace(/(?<![\\a-zA-Z0-9])\(/g, '\\left(')
+    .replace(/(?<![\\a-zA-Z0-9])\)/g, '\\right)')
+    .replace(/(?<![\\a-zA-Z0-9])\[/g, '\\left[')
+    .replace(/(?<![\\a-zA-Z0-9])\]/g, '\\right]');
+}
+
+function renderPreview() {
+  updateHighlight();
+  const val = inputEl.value.trim();
+  if (!val) {
+    previewEl.innerHTML = '<span class="preview-placeholder">ここにプレビューが表示されます</span>';
+    return;
+  }
+  const processed = autoSize(val);
+  // Try auto-sized version first (display → inline), then fallback to original
+  let html = tryRender(processed, true) || tryRender(processed, false)
+          || tryRender(val, true)       || tryRender(val, false);
+  if (html) {
+    previewEl.innerHTML = html;
+  } else {
+    try { katex.renderToString(val, { throwOnError: true }); }
+    catch(err) { previewEl.innerHTML = `<span class="preview-error">⚠ ${err.message}</span>`; }
+  }
+}
+
+/* ─── Copy ───────────────────────────────────────────────────────────── */
+function copyTeX(mode) {
+  const val = inputEl.value.trim();
+  if (!val) return;
+  const text = mode === 'block' ? `$$${val}$$` : `$${val}$`;
+  navigator.clipboard.writeText(text).then(() => {
+    toastEl.classList.add('show');
+    setTimeout(() => toastEl.classList.remove('show'), 2000);
+  });
+}
+
+function clearInput() {
+  saveState();
+  inputEl.value = '\\begin{aligned}\n\n\\end{aligned}';
+  inputEl.setSelectionRange(17, 17);
+  renderPreview();
+  inputEl.focus();
+}
+
+/* ─── Syntax highlighting ────────────────────────────────────────────── */
+const highlightEl = document.getElementById('highlight');
+
+function escH(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function tokenize(code) {
+  let html = '';
+  let i = 0;
+  while (i < code.length) {
+    const ch = code[i];
+
+    if (ch === '\\') {
+      if (code[i+1] === '\\') {
+        // \\ line break
+        html += `<span class="hl-brk">\\\\</span>`;
+        i += 2;
+      } else if (/[a-zA-Z]/.test(code[i+1] || '')) {
+        // \command — read the full command name
+        let j = i + 1;
+        while (j < code.length && /[a-zA-Z]/.test(code[j])) j++;
+        const name = code.slice(i, j); // e.g. \begin
+        const isBeginEnd = name === '\\begin' || name === '\\end';
+        html += `<span class="${isBeginEnd ? 'hl-be' : 'hl-cmd'}">${escH(name)}</span>`;
+        // If \begin or \end, consume {envname}
+        if (isBeginEnd && code[j] === '{') {
+          let k = j + 1;
+          while (k < code.length && code[k] !== '}') k++;
+          html += `<span class="hl-br">{</span><span class="hl-env">${escH(code.slice(j+1, k))}</span><span class="hl-br">}</span>`;
+          i = k + 1;
+        } else {
+          i = j;
+        }
+      } else {
+        html += escH(ch); i++;
+      }
+    } else if (ch === '{' || ch === '}') {
+      html += `<span class="hl-br">${ch}</span>`; i++;
+    } else if (ch === '_' || ch === '^') {
+      html += `<span class="hl-sc">${ch}</span>`; i++;
+    } else if (ch === '&') {
+      html += `<span class="hl-amp">&amp;</span>`; i++;
+    } else if (ch === '<') {
+      html += '&lt;'; i++;
+    } else if (ch === '>') {
+      html += '&gt;'; i++;
+    } else if (/[0-9]/.test(ch)) {
+      let j = i;
+      while (j < code.length && /[0-9.]/.test(code[j])) j++;
+      html += `<span class="hl-num">${escH(code.slice(i, j))}</span>`;
+      i = j;
+    } else {
+      html += ch === '\n' ? '\n' : escH(ch);
+      i++;
+    }
+  }
+  return html + ' '; // trailing space prevents last-line collapse
+}
+
+function updateHighlight() {
+  highlightEl.innerHTML = tokenize(inputEl.value);
+  highlightEl.scrollTop = inputEl.scrollTop;
+}
+
+// Scroll sync
+inputEl.addEventListener('scroll', () => {
+  highlightEl.scrollTop = inputEl.scrollTop;
+});
+
+
+const MAX_HIST = 200;
+let undoStack = [];
+let redoStack = [];
+
+function saveState() {
+  const state = {
+    v: inputEl.value,
+    s: inputEl.selectionStart,
+    e: inputEl.selectionEnd
+  };
+  const last = undoStack[undoStack.length - 1];
+  if (last && last.v === state.v) return;
+  undoStack.push(state);
+  if (undoStack.length > MAX_HIST) undoStack.shift();
+  redoStack = [];
+}
+
+function applyState(state) {
+  inputEl.value = state.v;
+  inputEl.setSelectionRange(state.s, state.e);
+  renderPreview();
+}
+
+function undo() {
+  if (undoStack.length <= 1) return;
+  redoStack.push(undoStack.pop());
+  applyState(undoStack[undoStack.length - 1]);
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  const state = redoStack.pop();
+  undoStack.push(state);
+  applyState(state);
+}
+
+/* ─── Events ─────────────────────────────────────────────────────────── */
+let burstActive = false, burstTimer = null;
+
+inputEl.addEventListener('keydown', e => {
+  const mod = e.ctrlKey || e.metaKey;
+
+  // Undo / Redo
+  if (mod && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (mod && e.key === 'y') { e.preventDefault(); redo(); return; }
+
+  // Tab → indent
+  if (e.key === 'Tab') { e.preventDefault(); insertSym({ t: '  ' }); return; }
+
+  // Save state at the start of each typing burst
+  if (!burstActive) { saveState(); burstActive = true; }
+  clearTimeout(burstTimer);
+  burstTimer = setTimeout(() => { burstActive = false; }, 1000);
+});
+
+inputEl.addEventListener('input', () => {
+  const pos = inputEl.selectionStart;
+  const val = inputEl.value;
+  if (pos >= 2 && val.slice(pos - 2, pos) === '\\\\' && val[pos] !== '[') {
+    const pt = document.getElementById('default-pt').value || '6';
+    const insert = `[${pt}pt]`;
+    inputEl.value = val.slice(0, pos) + insert + val.slice(pos);
+    inputEl.setSelectionRange(pos + 1, pos + 1 + pt.length);
+  }
+  renderPreview();
+});
+
+/* ─── Init ───────────────────────────────────────────────────────────── */
+buildTabs();
+showTab(0);
+inputEl.value = '\\begin{aligned}\n\n\\end{aligned}';
+inputEl.setSelectionRange(17, 17);
+saveState();
+renderPreview();
+</script>
+</body>
+</html>
