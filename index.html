@@ -368,8 +368,7 @@ body {
     </div>
   </div>
   <div id="actions">
-    <button class="act-btn" id="btn-inline"  onclick="copyTeX('inline')">コピー $…$（インライン）</button>
-    <button class="act-btn" id="btn-block"   onclick="copyTeX('block')">コピー $$…$$（ブロック）</button>
+    <button class="act-btn" id="btn-block"   onclick="copyTeX('block')">コピー（Notionブロック数式用）</button>
     <button class="act-btn" id="btn-clear"   onclick="clearInput()">クリア</button>
     <label id="pt-label">
       行間デフォルト
@@ -640,7 +639,7 @@ function renderPreview() {
 function copyTeX(mode) {
   const val = inputEl.value.trim();
   if (!val) return;
-  const text = mode === 'block' ? `$$${val}$$` : `$${val}$`;
+  const text = val;
   navigator.clipboard.writeText(text).then(() => {
     toastEl.classList.add('show');
     setTimeout(() => toastEl.classList.remove('show'), 2000);
