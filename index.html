@@ -128,15 +128,14 @@ body {
 
 /* ── Workspace ── */
 #workspace {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 220px;
+  display: flex;
+  flex-direction: column;
 }
 
 .pane {
   padding: 12px;
 }
-#input-pane { border-right: 1px solid #e8eaed; }
+#input-pane { border-bottom: 1px solid #e8eaed; }
 #preview-pane { background: #fafbfc; }
 
 .pane-label {
@@ -150,7 +149,7 @@ body {
 
 #input {
   width: 100%;
-  height: 500px;
+  height: 300px;
   font-family: "Consolas", "Courier New", monospace;
   font-size: 13.5px;
   line-height: 1.65;
@@ -178,7 +177,7 @@ body {
 /* Syntax highlight overlay */
 .editor-wrapper {
   position: relative;
-  height: 500px;
+  height: 300px;
 }
 #highlight {
   position: absolute;
@@ -210,7 +209,7 @@ body {
 .hl-num  { color: #2e7d32; }                     /* numbers */
 
 #preview {
-  min-height: 500px;
+  min-height: 300px;
   border: 1.5px solid #dde0e8;
   border-radius: 6px;
   padding: 16px 14px;
