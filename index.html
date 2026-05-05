@@ -284,7 +284,52 @@ body {
 /* KaTeX sizing inside buttons */
 .sym-btn .katex { font-size: 1em; }
 
-/* ── Recently used ── */
+/* ── Find / Replace ── */
+#findreplace-bar {
+  display: none;
+  padding: 8px 12px;
+  border-top: 1.5px solid #e0e4ea;
+  border-bottom: 1.5px solid #e0e4ea;
+  background: #f0f4ff;
+  gap: 6px;
+  flex-direction: column;
+}
+#findreplace-bar.open { display: flex; }
+
+.fr-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.fr-label {
+  font-size: 11.5px;
+  color: #888;
+  width: 28px;
+  flex-shrink: 0;
+}
+.fr-row input[type="text"] {
+  flex: 1;
+  min-width: 120px;
+  max-width: 280px;
+  padding: 5px 8px;
+  border: 1.5px solid #dde0e8;
+  border-radius: 5px;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12.5px;
+  outline: none;
+}
+.fr-row input[type="text"]:focus { border-color: #4285f4; }
+.fr-regex-label { font-size: 11.5px; color: #777; display: flex; align-items: center; gap: 4px; }
+#fr-count { font-size: 11.5px; color: #0f9d58; font-weight: 600; min-width: 60px; }
+.fr-btn { background: #5f6368; color: #fff; }
+#fr-all-btn { background: #c62828; }
+
+/* search highlight in overlay */
+.hl-match { background: #fff176; border-radius: 2px; }
+.hl-match-cur { background: #ffb300; border-radius: 2px; }
+
+
 #recent-row {
   display: flex;
   align-items: center;
@@ -362,6 +407,20 @@ body {
         <div id="recent-btns"></div>
       </div>
     </div>
+    <div id="findreplace-bar">
+      <div class="fr-row">
+        <span class="fr-label">検索</span>
+        <input type="text" id="fr-search" placeholder="例: \phi">
+        <label class="fr-regex-label"><input type="checkbox" id="fr-regex"> 正規表現</label>
+        <span id="fr-count"></span>
+      </div>
+      <div class="fr-row">
+        <span class="fr-label">置換</span>
+        <input type="text" id="fr-replace" placeholder="空欄で削除">
+        <button class="act-btn fr-btn" onclick="replaceOne()">1件置換</button>
+        <button class="act-btn fr-btn" id="fr-all-btn" onclick="replaceAll()">すべて置換・削除</button>
+      </div>
+    </div>
     <div class="pane" id="preview-pane">
       <div class="pane-label">プレビュー</div>
       <div id="preview"><span class="preview-placeholder">ここにプレビューが表示されます</span></div>
@@ -370,6 +429,7 @@ body {
   <div id="actions">
     <button class="act-btn" id="btn-block"   onclick="copyTeX('block')">コピー（Notionブロック数式用）</button>
     <button class="act-btn" id="btn-clear"   onclick="clearInput()">クリア</button>
+    <button class="act-btn" id="btn-findreplace" onclick="toggleFindReplace()">検索・置換</button>
     <label id="pt-label">
       行間デフォルト
       <input type="number" id="default-pt" value="6" min="0" max="99" step="1">
@@ -791,6 +851,79 @@ inputEl.addEventListener('input', () => {
   }
   renderPreview();
 });
+
+/* ─── Find / Replace ─────────────────────────────────────────────────── */
+const frBar     = document.getElementById('findreplace-bar');
+const frSearch  = document.getElementById('fr-search');
+const frReplace = document.getElementById('fr-replace');
+const frCount   = document.getElementById('fr-count');
+const frRegex   = document.getElementById('fr-regex');
+
+function toggleFindReplace() {
+  frBar.classList.toggle('open');
+  if (frBar.classList.contains('open')) frSearch.focus();
+  else { frCount.textContent = ''; renderPreview(); }
+}
+
+function getSearchRegex(flags = 'g') {
+  const q = frSearch.value;
+  if (!q) return null;
+  try {
+    return frRegex.checked ? new RegExp(q, flags) : new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags);
+  } catch { return null; }
+}
+
+function updateFrCount() {
+  const re = getSearchRegex('g');
+  if (!re) { frCount.textContent = ''; updateHighlight(); return; }
+  const matches = [...inputEl.value.matchAll(re)];
+  frCount.textContent = matches.length ? `${matches.length} 件` : '見つかりません';
+  // Highlight matches in overlay
+  updateHighlightWithMatches(re);
+}
+
+function updateHighlightWithMatches(re) {
+  if (!re) { updateHighlight(); return; }
+  const raw = inputEl.value;
+  let html = '';
+  let last = 0;
+  for (const m of raw.matchAll(re)) {
+    html += tokenize(raw.slice(last, m.index)).replace(/ $/, '');
+    html += `<span class="hl-match">${escH(m[0])}</span>`;
+    last = m.index + m[0].length;
+  }
+  html += tokenize(raw.slice(last));
+  highlightEl.innerHTML = html;
+  highlightEl.scrollTop = inputEl.scrollTop;
+}
+
+function replaceAll() {
+  const re = getSearchRegex('g');
+  if (!re) return;
+  saveState();
+  inputEl.value = inputEl.value.replace(re, frReplace.value);
+  updateFrCount();
+  renderPreview();
+}
+
+function replaceOne() {
+  const re = getSearchRegex('');
+  if (!re) return;
+  const pos = inputEl.selectionStart;
+  const val = inputEl.value;
+  const m = re.exec(val.slice(pos)) || re.exec(val);
+  if (!m) return;
+  saveState();
+  const start = val.indexOf(m[0], pos) !== -1 ? val.indexOf(m[0], pos) : val.indexOf(m[0]);
+  inputEl.value = val.slice(0, start) + frReplace.value + val.slice(start + m[0].length);
+  inputEl.setSelectionRange(start + frReplace.value.length, start + frReplace.value.length);
+  updateFrCount();
+  renderPreview();
+}
+
+frSearch.addEventListener('input', updateFrCount);
+frRegex.addEventListener('change', updateFrCount);
+frSearch.addEventListener('keydown', e => { if (e.key === 'Enter') replaceOne(); });
 
 /* ─── Init ───────────────────────────────────────────────────────────── */
 buildTabs();
